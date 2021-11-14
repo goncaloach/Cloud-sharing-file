@@ -5,28 +5,26 @@ import java.awt.event.ActionListener;
 
 public class DataClient {
 
-    private JFrame frame;
-
-    public DataClient(){
-        frame = new JFrame("Client");
-        frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        addFrameContent();
-        frame.setSize(440,140);
-        frame.setVisible(true);
+    public DataClient(String adress, int port){
     }
 
-    private void addFrameContent() {
+    private void openGUI() {
+        JFrame frame = new JFrame("Client");
+        frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        frame.setSize(600,140);
+        frame.setVisible(true);
+
         frame.setLayout(new FlowLayout());
 
         frame.add(new JLabel("Consult Position:"));
-        JTextField txtConsultPosition = new JTextField(7);
+        JTextField txtConsultPosition = new JTextField(10);
         frame.add(txtConsultPosition);
         txtConsultPosition.setText("0");
 
         frame.add(new JLabel("Length:"));
-        JTextField txtLength = new JTextField(7);
+        JTextField txtLength = new JTextField(10);
         frame.add(txtLength);
-        txtLength.setText("0");
+        txtLength.setText("1");
 
         JButton consultButton = new JButton("Consult");
         frame.add(consultButton);
@@ -43,10 +41,13 @@ public class DataClient {
                 //txtArea.setText();
             }
         });
-
     }
 
+
     public static void main(String[] args) {
-        DataClient dc = new DataClient();
+        if(args.length != 2)
+            throw new IllegalArgumentException("The number of arguments must be 2");
+        DataClient dc = new DataClient(args[0],Integer.parseInt(args[1]));
+        dc.openGUI();
     }
 }
