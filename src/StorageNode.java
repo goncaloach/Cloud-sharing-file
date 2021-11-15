@@ -8,8 +8,8 @@ import java.nio.file.Files;
 public class StorageNode {
 
     private CloudByte[] cloudBytes = new CloudByte[1000000];
-    private ObjectInputStream in;
-    private ObjectOutputStream out;
+    private BufferedReader in;
+    private PrintWriter out;
     private Socket socket;
     private int storagePort;
     private ServerSocket serverSocket;
@@ -27,13 +27,13 @@ public class StorageNode {
         InetAddress address = InetAddress.getByName(serverAddressText);
         socket = new Socket(address,serverPort);
 
-        System.out.println("Socket:" + socket);
+        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())), true);
 
-        //TODO
-        //in = new ObjectInputStream(serverSocket.accept().getInputStream());
-        //in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        //in = new ObjectInputStream(socket.getInputStream());
-        out = new ObjectOutputStream(socket.getOutputStream());
+        InetAddress snAdress = InetAddress.getByName(null);
+        String msg = "INSC "+snAdress+ " "+ storagePort;
+        System.out.println("Sending to Directory: "+msg);
+        out.println(msg);
     }
 
     public StorageNode(String serverAddressText, int serverPort, int storagePort){
