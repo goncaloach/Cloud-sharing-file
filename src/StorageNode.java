@@ -2,43 +2,52 @@ import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.nio.file.Files;
 
 public class StorageNode {
 
+    //TODO sincronizar o array de cloudBytes
+    //TODO conectar cliente ao node
+
     private CloudByte[] cloudBytes = new CloudByte[1000000];
     private BufferedReader in;
     private PrintWriter out;
-    private Socket socket;
-    private int storagePort;
+    private Socket directorySocket;
+
+
+    private int thisPort;
     private ServerSocket serverSocket;
 
-    public StorageNode(String serverAddressText, int serverPort, int storagePort, String fileName) throws IOException {
-        this.storagePort = storagePort;
-        serverSocket = new ServerSocket(storagePort);
-        connectToServer(serverAddressText,serverPort,storagePort);
+    public StorageNode(String directoryAddressText, int serverPort, int thisPort, String fileName) throws IOException {
+        this.thisPort = thisPort;
+        serverSocket = new ServerSocket(thisPort);
+
+        connectToDirectory(directoryAddressText,serverPort,thisPort);
 
         createCloudBytes(fileName);
-        injectError();
+
+        new ReadInputsFromConsole().start();
+
+        startServing();
+
+        System.out.println("algo de errado nao estao certo");
     }
 
-    private void connectToServer(String serverAddressText, int serverPort, int storagePort) throws IOException {
-        InetAddress address = InetAddress.getByName(serverAddressText);
-        socket = new Socket(address,serverPort);
+    /*public StorageNode(String serverAddressText, int serverPort, int thisPort){
+        //TODO
+    }*/
 
-        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())), true);
+    private void connectToDirectory(String directoryAddressText, int serverPort, int storagePort) throws IOException {
+        InetAddress address = InetAddress.getByName(directoryAddressText);
+        directorySocket = new Socket(address,serverPort);
+
+        in = new BufferedReader(new InputStreamReader(directorySocket.getInputStream()));
+        out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(directorySocket.getOutputStream())), true);
 
         InetAddress snAdress = InetAddress.getByName(null);
         String msg = "INSC "+snAdress+ " "+ storagePort;
         System.out.println("Sending to Directory: "+msg);
         out.println(msg);
-    }
-
-    public StorageNode(String serverAddressText, int serverPort, int storagePort){
-        //TODO
-        //injectError();
     }
 
     private void createCloudBytes(String fileName){
@@ -53,37 +62,92 @@ public class StorageNode {
         }
     }
 
-    private void injectError(){
-            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-            try {
-                String content = reader.readLine();
-                String[] splited = content.split("\\s+");
-                if (splited.length == 2 && splited[0].equals("ERROR")) {
-                    int numByte = Integer.parseInt(splited[1]);
-                    if(numByte<0 || numByte>999999)
-                        throw new IllegalArgumentException("Second argument must be a number between 0 and 999999");
-                    cloudBytes[numByte].makeByteCorrupt();
-                    System.out.println("Injected Error into byte number: " + numByte);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
+
+    private class ReadInputsFromConsole extends Thread{
+
+        private boolean checkArguments(String [] strArgs) {
+            if(strArgs.length != 2 || !strArgs[0].equals("ERROR")){
+                System.err.println("Wrong Arguments");
+                return false;
             }
-    }
-
-    private class DealWithClient extends  Thread{
-
-        private ObjectInputStream in;
-        private ObjectOutputStream out;
-
-        public DealWithClient(Socket socket) throws IOException {
-            in = new ObjectInputStream(socket.getInputStream());
-            out = new ObjectOutputStream(socket.getOutputStream());
+            try {
+                int num = Integer.parseInt(strArgs[1]);
+                if(num<1 || num>1000000){
+                    System.err.println("Second Argument must be a number between 1 and 1000000");
+                    return false;
+                }
+                return true;
+            }
+            catch( Exception e ) {
+                System.err.println("Second Argument must be a number");
+                return false;
+            }
         }
 
         @Override
         public void run() {
-            //TODO
-            System.out.println("run");
+            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+            while (true){
+                try {
+                    String content = reader.readLine();
+                    String[] strArgs = content.split("\\s+");
+
+                    if(checkArguments(strArgs)){
+                        int numByte = Integer.parseInt(strArgs[1])-1;
+
+                        //TODO falta sincronizar
+                        cloudBytes[numByte].makeByteCorrupt();
+                        System.out.println("Injected Error into byte number " + (numByte+1)+ ": "+cloudBytes[numByte]);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+    }
+
+
+
+    private void startServing() throws IOException {
+        try {
+            System.out.println("Awaiting connections...");
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
+                new DealWithClient(clientSocket).start();
+            }
+        } finally {
+            serverSocket.close();
+        }
+    }
+
+
+    private class DealWithClient extends Thread{
+
+        private ObjectInputStream in;
+        private ObjectOutputStream out;
+
+        public DealWithClient(Socket s) throws IOException {
+            out = new ObjectOutputStream(s.getOutputStream());
+            in = new ObjectInputStream(s.getInputStream());
+        }
+
+        @Override
+        public void run() {
+            while (true){
+                try {
+                    int[] values = (int[]) in.readObject();
+
+                    //TODO sincronizar
+                    String cloudBytesTXT="";
+                    for (int i = values[0]-1; i <values[0]+values[1]-1 ; i++) {
+                        cloudBytesTXT=cloudBytesTXT.concat(cloudBytes[i].toString()+"  ");
+                    }
+                    out.writeObject(cloudBytesTXT);
+                } catch (IOException | ClassNotFoundException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 

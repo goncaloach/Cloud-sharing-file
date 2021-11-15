@@ -1,3 +1,6 @@
+import netscape.javascript.JSUtil;
+import sun.swing.StringUIClientPropertyKey;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -7,21 +10,23 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.util.Arrays;
 
 public class DataClient {
 
     private ObjectInputStream in;
     private ObjectOutputStream out;
+    private JTextArea txtArea;
 
     public DataClient(String addressText, int port){
-        /*try {
+        try {
             InetAddress address = InetAddress.getByName(addressText);
             Socket socket = new Socket(address, port);
             in = new ObjectInputStream(socket.getInputStream());
             out = new ObjectOutputStream(socket.getOutputStream());
         } catch (IOException e) {
             e.printStackTrace();
-        }*/
+        }
     }
 
     private void openGUI() {
@@ -45,31 +50,75 @@ public class DataClient {
         JButton consultButton = new JButton("Consult");
         frame.add(consultButton);
 
-        JTextArea txtArea = new JTextArea();
+        txtArea = new JTextArea();
         frame.add(txtArea);
         txtArea.setText("The answers will apear here:  ");
 
         consultButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                //txtConsultPosition.setText();
-                //txtLength.setText();
+                if(checkValues(txtConsultPosition.getText(),txtLength.getText())){
+                    int position = Integer.parseInt(txtConsultPosition.getText());
+                    int length = Integer.parseInt(txtLength.getText());
+                    length = truncateLength(position,length);
+
+                    int[] msg = new int[2];
+                    msg[0]=position;
+                    msg[1]=length;
+
+                    try {
+                        out.writeObject(msg);
+                        new MessageReceiver().start();
+                    } catch (IOException ioException) {
+                        System.err.println("Error while sending data");
+                        ioException.printStackTrace();
+                    }
+                }
+
+                /*try {
+                    String o = (String) in.readObject();
+                } catch (IOException | ClassNotFoundException ex) {
+                    System.err.println("Error while receiving data");
+                    ex.printStackTrace();
+                }*/
                 //txtArea.setText();
             }
         });
     }
 
-    private boolean isIntegerInBounds( String input ) {
+    private class MessageReceiver extends Thread{
+
+        @Override
+        public void run() {
+            try {
+                String txt = (String) in.readObject();
+                txtArea.setText(txt);
+            } catch (IOException | ClassNotFoundException ex) {
+                System.err.println("Error while receiving data");
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    private int truncateLength(int pos, int len){
+        if(pos+len>1000001){
+            return 1000001-pos;
+        }
+        return len;
+    }
+
+    private boolean checkValues(String txtPosition, String txtLength) {
         try {
-            int num = Integer.parseInt(input);
-            if(num<0 || num>999999){
-                System.err.println("Second argument must be a number between 0 and 999999");
-                return  false;
+            int position = Integer.parseInt(txtPosition);
+            int length = Integer.parseInt(txtLength);
+            if(position<1 || position>1000000 || length<1 || length>1000000){
+                System.err.println("Position and Length must be numbers between 1 and 1000000");
+                return false;
             }
             return true;
         }
         catch( Exception e ) {
-            System.err.println("Second argument must be a number between 0 and 999999");
+            System.err.println("Values must be numbers");
             return false;
         }
     }
@@ -85,8 +134,5 @@ public class DataClient {
             throw new IllegalArgumentException("Second argument must be a number");
         }
 
-
-        DataClient dc = new DataClient(args[0],Integer.parseInt(args[1]));
-        dc.openGUI();
     }
 }
