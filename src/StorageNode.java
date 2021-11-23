@@ -7,7 +7,9 @@ import java.nio.file.Files;
 public class StorageNode {
 
     //TODO sincronizar o array de cloudBytes
-    //TODO conectar cliente ao node
+    //TODO enviar byteblockrequest
+    //TODO comunicar com o diretorio (node)
+
 
     private CloudByte[] cloudBytes = new CloudByte[1000000];
     private BufferedReader in;
@@ -140,9 +142,8 @@ public class StorageNode {
 
                     //TODO sincronizar
                     String cloudBytesTXT="";
-                    for (int i = values[0]-1; i <values[0]+values[1]-1 ; i++) {
+                    for (int i = values[0]-1; i <values[0]+values[1]-1 ; i++)
                         cloudBytesTXT=cloudBytesTXT.concat(cloudBytes[i].toString()+"  ");
-                    }
                     out.writeObject(cloudBytesTXT);
                 } catch (IOException | ClassNotFoundException e) {
                     e.printStackTrace();
