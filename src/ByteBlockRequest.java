@@ -1,4 +1,6 @@
-public class ByteBlockRequest {
+import java.io.Serializable;
+
+public class ByteBlockRequest implements Serializable {
 
     private int startIndex;
     private int length;

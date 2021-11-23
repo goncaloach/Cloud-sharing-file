@@ -1,6 +1,3 @@
-import netscape.javascript.JSUtil;
-import sun.swing.StringUIClientPropertyKey;
-
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -10,7 +7,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
-import java.util.Arrays;
 
 public class DataClient {
 
@@ -40,7 +36,7 @@ public class DataClient {
         frame.add(new JLabel("Consult Position:"));
         JTextField txtConsultPosition = new JTextField(10);
         frame.add(txtConsultPosition);
-        txtConsultPosition.setText("0");
+        txtConsultPosition.setText("1");
 
         frame.add(new JLabel("Length:"));
         JTextField txtLength = new JTextField(10);
@@ -62,26 +58,16 @@ public class DataClient {
                     int length = Integer.parseInt(txtLength.getText());
                     length = truncateLength(position,length);
 
-                    int[] msg = new int[2];
-                    msg[0]=position;
-                    msg[1]=length;
+                    ByteBlockRequest msgRequest = new ByteBlockRequest(position,length);
 
                     try {
-                        out.writeObject(msg);
+                        out.writeObject(msgRequest);
                         new MessageReceiver().start();
                     } catch (IOException ioException) {
                         System.err.println("Error while sending data");
                         ioException.printStackTrace();
                     }
                 }
-
-                /*try {
-                    String o = (String) in.readObject();
-                } catch (IOException | ClassNotFoundException ex) {
-                    System.err.println("Error while receiving data");
-                    ex.printStackTrace();
-                }*/
-                //txtArea.setText();
             }
         });
     }
@@ -91,8 +77,13 @@ public class DataClient {
         @Override
         public void run() {
             try {
-                String txt = (String) in.readObject();
-                txtArea.setText(txt);
+                CloudByte[] cloudBytes = (CloudByte[]) in.readObject();
+                String cloudBytesTXT="";
+                for (int i = 0; i < cloudBytes.length; i++){
+                    cloudBytesTXT=cloudBytesTXT.concat(cloudBytes[i]+"  ");
+                }
+
+                txtArea.setText(cloudBytesTXT);
             } catch (IOException | ClassNotFoundException ex) {
                 System.err.println("Error while receiving data");
                 ex.printStackTrace();

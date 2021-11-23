@@ -7,22 +7,24 @@ import java.nio.file.Files;
 public class StorageNode {
 
     //TODO sincronizar o array de cloudBytes
-    //TODO enviar byteblockrequest
-    //TODO comunicar com o diretorio (node)
+    //TODO comunicar com o diretorio (pedir n nodes)
+    //TODO tirar atributos desnecessarios
 
 
     private CloudByte[] cloudBytes = new CloudByte[1000000];
+
+
     private BufferedReader in;
     private PrintWriter out;
     private Socket directorySocket;
 
 
     private int thisPort;
-    private ServerSocket serverSocket;
+    private ServerSocket thisServerSocket;
 
     public StorageNode(String directoryAddressText, int serverPort, int thisPort, String fileName) throws IOException {
         this.thisPort = thisPort;
-        serverSocket = new ServerSocket(thisPort);
+        thisServerSocket = new ServerSocket(thisPort);
 
         connectToDirectory(directoryAddressText,serverPort,thisPort);
 
@@ -110,16 +112,15 @@ public class StorageNode {
     }
 
 
-
     private void startServing() throws IOException {
         try {
             System.out.println("Awaiting connections...");
             while (true) {
-                Socket clientSocket = serverSocket.accept();
+                Socket clientSocket = thisServerSocket.accept();
                 new DealWithClient(clientSocket).start();
             }
         } finally {
-            serverSocket.close();
+            thisServerSocket.close();
         }
     }
 
@@ -138,13 +139,21 @@ public class StorageNode {
         public void run() {
             while (true){
                 try {
-                    int[] values = (int[]) in.readObject();
+                    ByteBlockRequest msgReceived = (ByteBlockRequest) in.readObject();
+                    int startIndex = msgReceived.getStartIndex();
+                    int length = msgReceived.getLength();
+
+                    CloudByte[] msgResponse = new CloudByte[length];
 
                     //TODO sincronizar
-                    String cloudBytesTXT="";
-                    for (int i = values[0]-1; i <values[0]+values[1]-1 ; i++)
-                        cloudBytesTXT=cloudBytesTXT.concat(cloudBytes[i].toString()+"  ");
-                    out.writeObject(cloudBytesTXT);
+                    for (int i = startIndex-1, j=0; i < startIndex-1+length; i++, j++){
+                        //TODO verificar se o byte esta corrupt
+                        msgResponse[j]=cloudBytes[i];
+                    }
+                        //TODO verificar se o byte esta corrupt
+
+                    out.reset();
+                    out.writeObject(msgResponse);
                 } catch (IOException | ClassNotFoundException e) {
                     e.printStackTrace();
                 }

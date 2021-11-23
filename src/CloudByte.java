@@ -7,7 +7,7 @@ import javax.management.RuntimeErrorException;
  *
  */
 public class CloudByte implements Serializable {
-	byte value;
+	private byte value;
 	public CloudByte(byte value) {
 		if(value>127 || value <0)
 			throw new IllegalArgumentException("Invalid value for CloudByte");
