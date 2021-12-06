@@ -1,3 +1,5 @@
+import com.sun.xml.internal.ws.api.model.wsdl.WSDLOutput;
+
 import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -8,14 +10,8 @@ import java.util.Scanner;
 
 public class StorageNode {
 
-    //TODO comunicar com o diretorio (pedir num nodes)
-    //TODO implementar syncronized list para byteblockrequest
-    //TODO cada byteblock contem 100 bytes
-    //TODO Cada um destes processos ligeiros deve contar quantos blocos descarrega, e esta contagem deve
-    //ser imprimida na consola, juntamente com a identificação do nó remoto, após a conclusão do
-    //descarregamento dos dados.
-    //Deve ser implementada uma estrutura de coordenação para combinar os blocos recebidos
-
+    //TODO fechar sockets
+    //TODO corrigir erros
 
     private CloudByte[] cloudBytes = new CloudByte[1000000];
     private BufferedReader inDirectory;
@@ -42,8 +38,7 @@ public class StorageNode {
         } catch (IOException e) {
             System.err.println("Error while connecting to Clients");
             e.printStackTrace();
-        }
-
+        } //finally?
         System.out.println("You were not supposed to reach here :/");
     }
 
@@ -56,7 +51,11 @@ public class StorageNode {
             System.err.println("Error while connecting to Directory");
             e.printStackTrace();
         }
+
+        long start = System.nanoTime();
         getCloudBytesFromStorageNodes();
+        long timeElapsed = (System.nanoTime() - start) / 1000000L;
+        System.out.println("Time elapsed:"+timeElapsed+" milliseconds");
 
         new injectErrorsFromConsole().start();
 
@@ -65,8 +64,7 @@ public class StorageNode {
         } catch (IOException e) {
             System.err.println("Error while connecting to Clients");
             e.printStackTrace();
-        }
-
+        } //finally?
         System.out.println("You were not supposed to reach here v2 :/");
     }
 
@@ -134,17 +132,7 @@ public class StorageNode {
 
     }
 
-    //TODO
-    private class errorCorrector extends Thread{
-
-    }
-
-    //TODO
-    private void correctError(){
-
-    }
-
-    //TODO
+    //DONE
     private void getCloudBytesFromStorageNodes(){
         ArrayList<NodeInformation> storageNodes = getListOfStorageNodes();
         ByteBlockRequestQueue queue = new ByteBlockRequestQueue();
@@ -163,6 +151,7 @@ public class StorageNode {
         });
     }
 
+    //DONE
     private class NodeInformation{
         private final InetAddress address;
         private final int port;
@@ -181,6 +170,7 @@ public class StorageNode {
         }
     }
 
+    //DONE
     private ArrayList<NodeInformation> getListOfStorageNodes()  {
         ArrayList<NodeInformation> list = new ArrayList<>();
         outDirectory.println("nodes");
@@ -201,15 +191,17 @@ public class StorageNode {
         }
         System.out.println("List of StorageNodes to contact:");
         list.forEach(i-> System.out.println(i.getAddress()+"  "+i.getPort()));
+        System.out.println("Download Started...");
         return list;
     }
 
+    //DONE
     private class getStorageNodeData extends Thread{
 
         private ObjectInputStream in;
         private ObjectOutputStream out;
         private ByteBlockRequestQueue queue;
-        private int blocksTransfered;
+        private int blocksTransferred;
         private final InetAddress address;
         private final int port;
 
@@ -229,21 +221,15 @@ public class StorageNode {
 
         @Override
         public void run() {
-            System.out.println("Download Started");
             while (!queue.isEmpty()){
                 try{
                     ByteBlockRequest request = queue.getRequest();
                     try {
                         out.writeObject(request);
-                        /*try {
-                            Thread.sleep(100);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }*/
                         CloudByte[] dataReceived = (CloudByte[]) in.readObject();
                         for (int i = request.getStartIndex(),j = 0; i < request.getStartIndex() + 100; i++, j++)
                             cloudBytes[i] = dataReceived[j];
-                        blocksTransfered++;
+                        blocksTransferred++;
                     } catch (IOException | ClassNotFoundException ioException) {
                         System.err.println("Error while sending or receiving data");
                         ioException.printStackTrace();
@@ -251,11 +237,11 @@ public class StorageNode {
                 }catch (IllegalStateException e){} //list is empty
             }
             System.out.println("Transfer finished from StorageNode Address:"+address+" Port:"+port);
-            System.out.println("Blocks Transfered:"+ blocksTransfered);
+            System.out.println("Blocks Transferred:"+ blocksTransferred +" = "+(blocksTransferred *100)+" bytes");
         }
-
     }
 
+    //DONE
     private void startServing() throws IOException {
         try {
             System.out.println("Awaiting connections...");
@@ -269,6 +255,7 @@ public class StorageNode {
         }
     }
 
+    //DONE
     private class DealWithClient extends Thread {
 
         private ObjectInputStream in;
@@ -304,6 +291,14 @@ public class StorageNode {
                 }
             }
         }
+    }
+
+    //TODO
+    private class errorCorrector extends Thread{
+    }
+
+    //TODO
+    private void correctError(){
     }
 
     public static void main(String[] args) throws IOException {
