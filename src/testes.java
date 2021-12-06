@@ -1,3 +1,6 @@
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 public class testes {
 
     public static void main(String[] args) {
@@ -6,10 +9,11 @@ public class testes {
             list.addRequest(new ByteBlockRequest(i,i));
         }
 
-        cyka c1 = new cyka(list,1);
-        cyka c2 = new cyka(list,2);
-        c1.start();
-        c2.start();
+        for (int i = 0; i < 1; i++) {
+            cyka c = new cyka(list,i);
+            c.start();
+        }
+
 
     }
 }

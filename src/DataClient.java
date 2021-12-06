@@ -18,8 +18,8 @@ public class DataClient {
         try {
             InetAddress address = InetAddress.getByName(addressText);
             Socket socket = new Socket(address, port);
-            in = new ObjectInputStream(socket.getInputStream());
             out = new ObjectOutputStream(socket.getOutputStream());
+            in = new ObjectInputStream(socket.getInputStream());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -54,7 +54,7 @@ public class DataClient {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if(checkValues(txtConsultPosition.getText(),txtLength.getText())){
-                    int position = Integer.parseInt(txtConsultPosition.getText());
+                    int position = Integer.parseInt(txtConsultPosition.getText())-1;
                     int length = Integer.parseInt(txtLength.getText());
                     length = truncateLength(position,length);
 
@@ -92,9 +92,8 @@ public class DataClient {
     }
 
     private int truncateLength(int pos, int len){
-        if(pos+len>1000001){
-            return 1000001-pos;
-        }
+        if(pos+len>1000000)
+            return 1000000-pos;
         return len;
     }
 

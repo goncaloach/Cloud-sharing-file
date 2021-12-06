@@ -20,11 +20,12 @@ public class StorageNode {
     private CloudByte[] cloudBytes = new CloudByte[1000000];
     private BufferedReader inDirectory;
     private PrintWriter outDirectory;
-    private ServerSocket storageNodeServerSocket;
-    //private List<ByteBlockRequest> requestsQueue = Collections.synchronizedList(new ArrayList<>());
+    private ServerSocket storageNodeServerSocket; //notneeded?
 
+    private final int port;
 
     public StorageNode(String directoryAddressText, int directoryPort, int nodePort, String fileName) {
+        this.port = nodePort;
         try {
             this.storageNodeServerSocket = new ServerSocket(nodePort);
             connectToDirectory(directoryAddressText, directoryPort, nodePort);
@@ -47,6 +48,7 @@ public class StorageNode {
     }
 
     public StorageNode(String directoryAddressText, int directoryPort, int nodePort) {
+        this.port = nodePort;
         try {
             this.storageNodeServerSocket = new ServerSocket(nodePort);
             connectToDirectory(directoryAddressText, directoryPort, nodePort);
@@ -54,8 +56,8 @@ public class StorageNode {
             System.err.println("Error while connecting to Directory");
             e.printStackTrace();
         }
-
         getCloudBytesFromStorageNodes();
+
         new injectErrorsFromConsole().start();
 
         try {
@@ -144,21 +146,34 @@ public class StorageNode {
 
     //TODO
     private void getCloudBytesFromStorageNodes(){
-        ArrayList<NodeInformation> list = getListOfStorageNodes();
-
+        ArrayList<NodeInformation> storageNodes = getListOfStorageNodes();
+        ByteBlockRequestQueue queue = new ByteBlockRequestQueue();
+        for (int i = 0; i < 10000; i++)
+            queue.addRequest(new ByteBlockRequest(i*100,100));
+        ArrayList<Thread> threads = new ArrayList<>();
+        for (int i = 0; i < storageNodes.size(); i++)
+            threads.add(new getStorageNodeData(storageNodes.get(i).getAddress(),storageNodes.get(i).getPort(),queue));
+        threads.forEach(t->t.start());
+        threads.forEach(t-> {
+            try {
+                t.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     private class NodeInformation{
-        private InetAddress address;
-        private int port;
+        private final InetAddress address;
+        private final int port;
 
         public NodeInformation(InetAddress address, int port) {
             this.address = address;
             this.port = port;
         }
 
-        public void setAddress(InetAddress address) {
-            this.address = address;
+        public InetAddress getAddress() {
+            return address;
         }
 
         public int getPort() {
@@ -177,13 +192,68 @@ public class StorageNode {
                 String[] values = line.split("\\s+");
                 if(values[1].equals("localhost/127.0.0.1"))     //InetAddress.getByName can't recognize this address
                     values[1]="localhost";
-                list.add(new NodeInformation(InetAddress.getByName(values[1]),Integer.parseInt(values[2])));
+                if(!values[2].equals(""+port))
+                    list.add(new NodeInformation(InetAddress.getByName(values[1]),Integer.parseInt(values[2])));
             }
         } catch (IOException e) {
             e.printStackTrace();
             System.err.println("Error while trying to receive list of StorageNodes");
         }
+        System.out.println("List of StorageNodes to contact:");
+        list.forEach(i-> System.out.println(i.getAddress()+"  "+i.getPort()));
         return list;
+    }
+
+    private class getStorageNodeData extends Thread{
+
+        private ObjectInputStream in;
+        private ObjectOutputStream out;
+        private ByteBlockRequestQueue queue;
+        private int blocksTransfered;
+        private final InetAddress address;
+        private final int port;
+
+        public getStorageNodeData(InetAddress address, int port,ByteBlockRequestQueue queue){
+            this.address=address;
+            this.port=port;
+            this.queue=queue;
+            try {
+                Socket socket = new Socket(address, port);
+                out = new ObjectOutputStream(socket.getOutputStream());
+                in = new ObjectInputStream(socket.getInputStream());
+            } catch (IOException e) {
+                e.printStackTrace();
+                System.err.println("Error while trying to connect with StorageNodes");
+            }
+        }
+
+        @Override
+        public void run() {
+            System.out.println("Download Started");
+            while (!queue.isEmpty()){
+                try{
+                    ByteBlockRequest request = queue.getRequest();
+                    try {
+                        out.writeObject(request);
+                        /*try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }*/
+                        CloudByte[] dataReceived = (CloudByte[]) in.readObject();
+                        for (int i = request.getStartIndex(),j = 0; i < request.getStartIndex() + 100; i++, j++)
+                            cloudBytes[i] = dataReceived[j];
+                        blocksTransfered++;
+                    } catch (IOException | ClassNotFoundException ioException) {
+                        System.err.println("Error while sending or receiving data");
+                        ioException.printStackTrace();
+                    }
+                }catch (IllegalStateException e){} //list is empty
+            }
+            System.out.println("Transfer finished from StorageNode Address:"+address+" Port:"+port);
+            System.out.println("Blocks Transfered:"+ blocksTransfered);
+        }
+
     }
 
     private void startServing() throws IOException {
@@ -205,8 +275,8 @@ public class StorageNode {
         private ObjectOutputStream out;
 
         public DealWithClient(Socket s) throws IOException {
-            out = new ObjectOutputStream(s.getOutputStream());
             in = new ObjectInputStream(s.getInputStream());
+            out = new ObjectOutputStream(s.getOutputStream());
         }
 
         @Override
@@ -217,15 +287,14 @@ public class StorageNode {
                     int startIndex = msgReceived.getStartIndex();
                     int length = msgReceived.getLength();
                     CloudByte[] msgResponse = new CloudByte[length];
-                    for (int i = startIndex - 1; i < startIndex - 1 + length; i++) {
+                    for (int i = startIndex; i < startIndex + length; i++) {
                         if (!cloudBytes[i].isParityOk()) {
-                            System.out.println("Error in byte number " + (i + 1) + ": " + cloudBytes[i]);
+                            System.out.println("Error in byte number " + (i+1) + ": " + cloudBytes[i]);
                             //TODO corrigir erro
                         }
                     }
 
-
-                    for (int i = startIndex - 1, j = 0; i < startIndex - 1 + length; i++, j++)
+                    for (int i = startIndex, j = 0; i < startIndex + length; i++, j++)
                         msgResponse[j] = cloudBytes[i];
 
                     out.reset();
