@@ -1,5 +1,3 @@
-import com.sun.xml.internal.ws.api.model.wsdl.WSDLOutput;
-
 import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -12,18 +10,17 @@ public class StorageNode {
 
     //TODO fechar sockets
     //TODO corrigir erros
+    //sincronizar ao montar cloudbytes?
+    //Retirar pedidos da queue, o thread ainda vai buscar items a lista qnd esta vazia
 
     private CloudByte[] cloudBytes = new CloudByte[1000000];
     private BufferedReader inDirectory;
     private PrintWriter outDirectory;
-    private ServerSocket storageNodeServerSocket; //notneeded?
-
     private final int port;
 
     public StorageNode(String directoryAddressText, int directoryPort, int nodePort, String fileName) {
         this.port = nodePort;
         try {
-            this.storageNodeServerSocket = new ServerSocket(nodePort);
             connectToDirectory(directoryAddressText, directoryPort, nodePort);
         } catch (IOException e) {
             System.err.println("Error while connecting to Directory");
@@ -38,14 +35,13 @@ public class StorageNode {
         } catch (IOException e) {
             System.err.println("Error while connecting to Clients");
             e.printStackTrace();
-        } //finally?
+        }
         System.out.println("You were not supposed to reach here :/");
     }
 
     public StorageNode(String directoryAddressText, int directoryPort, int nodePort) {
         this.port = nodePort;
         try {
-            this.storageNodeServerSocket = new ServerSocket(nodePort);
             connectToDirectory(directoryAddressText, directoryPort, nodePort);
         } catch (IOException e) {
             System.err.println("Error while connecting to Directory");
@@ -64,7 +60,7 @@ public class StorageNode {
         } catch (IOException e) {
             System.err.println("Error while connecting to Clients");
             e.printStackTrace();
-        } //finally?
+        }
         System.out.println("You were not supposed to reach here v2 :/");
     }
 
@@ -139,8 +135,8 @@ public class StorageNode {
         for (int i = 0; i < 10000; i++)
             queue.addRequest(new ByteBlockRequest(i*100,100));
         ArrayList<Thread> threads = new ArrayList<>();
-        for (int i = 0; i < storageNodes.size(); i++)
-            threads.add(new getStorageNodeData(storageNodes.get(i).getAddress(),storageNodes.get(i).getPort(),queue));
+        for (NodeInformation storageNode : storageNodes)
+            threads.add(new getStorageNodeData(storageNode.getAddress(), storageNode.getPort(), queue));
         threads.forEach(t->t.start());
         threads.forEach(t-> {
             try {
@@ -243,16 +239,21 @@ public class StorageNode {
 
     //DONE
     private void startServing() throws IOException {
+        ServerSocket storageNodeServerSocket = new ServerSocket(port);
         try {
             System.out.println("Awaiting connections...");
             while (true) {
                 Socket clientSocket = storageNodeServerSocket.accept();
                 new DealWithClient(clientSocket).start();
             }
-        } finally {
-            //not needed
-            storageNodeServerSocket.close();
+        } //finally {
+        catch (IOException e) {
+            System.err.println("Error while serving clients");
+            e.printStackTrace();
         }
+        //not needed
+            //storageNodeServerSocket.close();
+        //}
     }
 
     //DONE
@@ -278,12 +279,11 @@ public class StorageNode {
                         if (!cloudBytes[i].isParityOk()) {
                             System.out.println("Error in byte number " + (i+1) + ": " + cloudBytes[i]);
                             //TODO corrigir erro
+                            correctError(i);
                         }
                     }
-
                     for (int i = startIndex, j = 0; i < startIndex + length; i++, j++)
                         msgResponse[j] = cloudBytes[i];
-
                     out.reset();
                     out.writeObject(msgResponse);
                 } catch (IOException | ClassNotFoundException e) {
@@ -295,12 +295,43 @@ public class StorageNode {
 
     //TODO
     private class errorCorrector extends Thread{
+
+        private CountDownLatch cdl;
+        private ObjectInputStream in;
+        private ObjectOutputStream out;
+        private final InetAddress address;
+        private final int port;
+
+        public errorCorrector(InetAddress address, int port, CountDownLatch cdl){
+            this.cdl=cdl;
+            this.address=address;
+            this.port=port;
+            try {
+                Socket socket = new Socket(address, port);
+                out = new ObjectOutputStream(socket.getOutputStream());
+                in = new ObjectInputStream(socket.getInputStream());
+            } catch (IOException e) {
+                e.printStackTrace();
+                System.err.println("Error while trying to connect with StorageNodes (errorCorrector)");
+            }
+        }
+
+        @Override
+        public void run() {
+
+        }
     }
 
     //TODO
-    private void correctError(){
+    private void correctError(int position){
+        ArrayList<NodeInformation> storageNodes = getListOfStorageNodes();
+        CountDownLatch cld = new CountDownLatch(2);
+        ArrayList<Thread> threads = new ArrayList<>();
+        //for (int i = 0; i < storageNodes.size(); i++)
+         //   threads.add(new getStorageNodeData(storageNodes.get(i).getAddress(),storageNodes.get(i).getPort(),queue));
     }
 
+    //TODO check args
     public static void main(String[] args) throws IOException {
         if (args.length == 4)
             new StorageNode(args[0], Integer.parseInt(args[1]), Integer.parseInt(args[2]), args[3]);

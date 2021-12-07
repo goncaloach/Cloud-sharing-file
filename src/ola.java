@@ -1,12 +1,12 @@
 import java.io.IOException;
 
-public class cyka extends Thread{
+public class ola extends Thread{
 
     int num = 0;
     int id ;
     ByteBlockRequestQueue queue;
 
-    public cyka(ByteBlockRequestQueue queue, int id){
+    public ola(ByteBlockRequestQueue queue, int id){
        this.queue = queue;
        this.id=id;
     }
