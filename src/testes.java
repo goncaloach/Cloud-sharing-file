@@ -1,16 +1,24 @@
+import java.util.ArrayList;
+
 public class testes {
 
     public static void main(String[] args) {
-        ByteBlockRequestQueue list = new ByteBlockRequestQueue();
-        for (int i = 0; i < 10000; i++) {
-            list.addRequest(new ByteBlockRequest(i,i));
+        CountDownLatch cld = new CountDownLatch(1);
+        ArrayList<Thread> threads = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            threads.add(new adeus(i,cld));
         }
 
-        for (int i = 0; i < 1; i++) {
-            ola c = new ola(list,i);
-            c.start();
-        }
+        threads.forEach(Thread::start);
 
+        try {
+            cld.await();
+            System.out.println("final do await");
+            threads.forEach(Thread::interrupt);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
 
     }
+
 }

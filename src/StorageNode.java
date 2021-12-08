@@ -1,3 +1,5 @@
+import com.sun.beans.editors.ByteEditor;
+
 import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -8,10 +10,7 @@ import java.util.Scanner;
 
 public class StorageNode {
 
-    //TODO fechar sockets
     //TODO corrigir erros
-    //sincronizar ao montar cloudbytes?
-    //Retirar pedidos da queue, o thread ainda vai buscar items a lista qnd esta vazia
 
     private CloudByte[] cloudBytes = new CloudByte[1000000];
     private BufferedReader inDirectory;
@@ -279,7 +278,7 @@ public class StorageNode {
                         if (!cloudBytes[i].isParityOk()) {
                             System.out.println("Error in byte number " + (i+1) + ": " + cloudBytes[i]);
                             //TODO corrigir erro
-                            correctError(i);
+                            //correctError(i);
                         }
                     }
                     for (int i = startIndex, j = 0; i < startIndex + length; i++, j++)
@@ -301,8 +300,11 @@ public class StorageNode {
         private ObjectOutputStream out;
         private final InetAddress address;
         private final int port;
+        private final ByteBlockRequest cloudByteRequested;
+        private CloudByte cloudByteReceived;
 
-        public errorCorrector(InetAddress address, int port, CountDownLatch cdl){
+        public errorCorrector(InetAddress address, int port, CountDownLatch cdl, ByteBlockRequest cloudByteRequested){
+            this.cloudByteRequested = cloudByteRequested;
             this.cdl=cdl;
             this.address=address;
             this.port=port;
@@ -318,7 +320,17 @@ public class StorageNode {
 
         @Override
         public void run() {
-
+            try {
+                out.writeObject(cloudByteRequested);
+                CloudByte[] dataReceived = (CloudByte[]) in.readObject();
+                cloudByteReceived = dataReceived[0];
+                System.out.println(cloudByteReceived);
+            } catch (IOException | ClassNotFoundException e) {
+                System.err.println("Error while sending or receiving data (errorCorrector)");
+                e.printStackTrace();
+            }
+            System.out.println("Transfer finished from StorageNode Address:"+address+" Port:"+port);
+            cdl.countDown();
         }
     }
 
@@ -327,8 +339,18 @@ public class StorageNode {
         ArrayList<NodeInformation> storageNodes = getListOfStorageNodes();
         CountDownLatch cld = new CountDownLatch(2);
         ArrayList<Thread> threads = new ArrayList<>();
-        //for (int i = 0; i < storageNodes.size(); i++)
-         //   threads.add(new getStorageNodeData(storageNodes.get(i).getAddress(),storageNodes.get(i).getPort(),queue));
+        ByteBlockRequest cloudByteRequested = new ByteBlockRequest(position,1);
+        System.out.println("starting threads");
+        for (NodeInformation storageNode : storageNodes)
+            threads.add(new errorCorrector(storageNode.getAddress(), storageNode.getPort(), cld, cloudByteRequested));
+        threads.forEach(Thread::start);
+        /*threads.forEach(t-> {
+            try {
+                t.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });*/
     }
 
     //TODO check args
