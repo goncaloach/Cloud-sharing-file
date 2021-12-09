@@ -1,36 +1,20 @@
-import java.util.ArrayList;
-
 public class adeus extends Thread{
 
-    private int id;
-    private CountDownLatch cdl;
-    private int time;
+    private Integer port;
+    private synchronizedHashMap map;
 
-    public adeus(int id, CountDownLatch cdl, int i){
-        this.time = i*10;
-        this.id = id;
-        this.cdl=cdl;
+    public adeus(synchronizedHashMap map,int port){
+        this.port = port;
+        this.map=map;
     }
 
     @Override
     public void run() {
-        try {
-            for (int i = 0; i < 5; i++) {
-                Thread.sleep(1000+time);
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            System.out.println("Thread id:"+id+" interrupted");
-            return;
+        try{
+            System.out.println(map.get(port));
+        }catch (NullPointerException  e){
+            System.out.println("no");
         }
-        System.out.println("Thread id:"+id+" finished");
-        cdl.countDown();
     }
 
-    @Override
-    public String toString() {
-        return "thread{" +
-                "ola sou a thread id=" + id +
-                '}';
-    }
 }

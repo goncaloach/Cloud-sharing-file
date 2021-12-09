@@ -26,4 +26,9 @@ public class NodeInformation{
     public void setReadyToServe(){
         this.readyToServe = true;
     }
+
+    @Override
+    public String toString() { //TODO readyToServe
+        return  "node "+address.getHostAddress()+" "+ port +" "+readyToServe;
+    }
 }

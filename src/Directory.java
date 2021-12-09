@@ -1,11 +1,12 @@
 import java.io.*;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
 public class Directory {
 
     private final int port;
-    //private synchronizedQueue<NodeInformation > storageNodes; nao pode ser queue
+    private synchronizedHashMap storageNodes = new synchronizedHashMap();
 
     public Directory(int port){
         this.port=port;
@@ -32,8 +33,12 @@ public class Directory {
 
         private BufferedReader in;
         private PrintWriter out;
+        private int port;
+        private InetAddress address;
+        private final Socket socket;
 
         public DealWithClient(Socket socket) throws IOException {
+            this.socket=socket;
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(socket.getOutputStream())),true);
         }
@@ -43,12 +48,79 @@ public class Directory {
             try {
                 while (true){
                     String msgReceived = in.readLine();
+                    System.out.println("Message received: "+msgReceived);
                     String[] values = msgReceived.split("\\s+");
-
+                    switch (values[0]){
+                        case "nodes":
+                            if(values.length!=1){
+                                System.err.println("Wrong Arguments");
+                                break;
+                            }
+                            String list;
+                            System.out.println("List of nodes:");
+                            for (Integer i : storageNodes.keySet()) {
+                                list="node "+storageNodes.get(i).getAddress()+" "
+                                        +storageNodes.get(i).getPort()+" "+storageNodes.get(i).isReadyToServe();
+                                System.out.println(list);
+                                out.println(list);
+                            }
+                            out.println("end");
+                            break;
+                        case "INSC":
+                            if(values.length!=3){
+                                System.err.println("Wrong Arguments");
+                                break;
+                            }
+                            if(values[1].equals("localhost/127.0.0.1"))     //InetAddress.getByName can't recognize this address
+                                values[1]="localhost";
+                            try{
+                                this.port = Integer.parseInt(values[2]);
+                                try {
+                                    storageNodes.get(port);
+                                    System.err.println("Client already registered");
+                                    break;
+                                } catch (NullPointerException e){}
+                                this.address = InetAddress.getByName(values[1]);
+                                storageNodes.put(port,new NodeInformation(address,port,false));
+                                System.out.println("Client Registered: "+storageNodes.get(port));
+                            }catch (Exception e){
+                                System.err.println("Wrong values");
+                                e.printStackTrace();
+                            }
+                            break;
+                        case "READY":  //READY <port>
+                            if(values.length!=2){
+                                System.err.println("Wrong Arguments");
+                                break;
+                            }
+                            try{
+                                Integer port = Integer.parseInt(values[1]);
+                                NodeInformation node = storageNodes.get(port);
+                                node.setReadyToServe();
+                                storageNodes.edit(port,node);
+                            }catch (Exception e){
+                                System.err.println("Wrong values");
+                                e.printStackTrace();
+                            }
+                            break;
+                        default:
+                            System.err.println("Wrong arguments");
+                            break;
+                    }
                 }
             } catch (IOException e) {
                 e.printStackTrace();
                 System.err.println("Error while receiving data");
+            } finally {
+                try {
+                    try{
+                        System.out.println("StorageNode removed: "+storageNodes.get(port));
+                        storageNodes.remove(port);
+                    }catch (NullPointerException e){} //Non existent StorageNode
+                    socket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
 
         }

@@ -8,10 +8,10 @@ import java.util.Scanner;
 
 public class StorageNode {
 
-    //TODO corrigir erros
-    //O diretorio so atende um cliende de cada vez?
+    //TODO corrigir erros quando 2 storagenodes tem erro
     //TODO deadlock! qnd o node 3 copia do node 1 ou 2 e estes tem erros
     //possivel correcao o diretorio mostrar so os nodes que estao disponiveis para servir
+    //TODO corrigir 2 storageNodes com o mesmo porto
 
     private CloudByte[] cloudBytes = new CloudByte[1000000];
     private BufferedReader inDirectory;
@@ -36,6 +36,7 @@ public class StorageNode {
         } catch (IOException e) {
             System.err.println("Error while connecting to Clients");
             e.printStackTrace();
+            System.exit(1);
         }
         System.out.println("You were not supposed to reach here :/");
     }
@@ -62,6 +63,7 @@ public class StorageNode {
         } catch (IOException e) {
             System.err.println("Error while connecting to Clients");
             e.printStackTrace();
+            System.exit(1);
         }
         System.out.println("You were not supposed to reach here v2 :/");
     }
@@ -162,7 +164,7 @@ public class StorageNode {
                 String line = inDirectory.readLine();
                 if (line.equals("end"))
                     break;
-                String[] values = line.split("\\s+");
+                String[] values = line.split("\\s+");   //TODO remover if
                 if(values[1].equals("localhost/127.0.0.1"))     //InetAddress.getByName can't recognize this address
                     values[1]="localhost";
                 if(!values[2].equals(""+port))
@@ -316,7 +318,6 @@ public class StorageNode {
                 System.err.println("Error while sending or receiving data (errorCorrector)");
                 e.printStackTrace();
             }
-            System.out.println("countdown from StorageNode Address:"+address+" Port:"+port);
             cdl.countDown();
         }
     }
