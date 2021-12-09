@@ -282,13 +282,13 @@ public class StorageNode {
         private CountDownLatch cdl;
         private ObjectInputStream in;
         private ObjectOutputStream out;
-        private synchronizedQueue<CloudByte> cbsReceived;
+        private synchronizedList<CloudByte> cbsReceived;
         private final InetAddress address;
         private final int port;
         private final ByteBlockRequest cloudByteRequested;
 
         public errorCorrector(InetAddress address, int port, CountDownLatch cdl,
-                              ByteBlockRequest cloudByteRequested,synchronizedQueue<CloudByte> cbsReceived){
+                              ByteBlockRequest cloudByteRequested,synchronizedList<CloudByte> cbsReceived){
             this.cbsReceived=cbsReceived;
             this.cloudByteRequested = cloudByteRequested;
             this.cdl=cdl;
@@ -326,7 +326,7 @@ public class StorageNode {
             System.out.println("Not enough StorageNodes to correct error");
             return;
         }
-        synchronizedQueue<CloudByte> cbsReceived = new synchronizedQueue<>();
+        synchronizedList<CloudByte> cbsReceived = new synchronizedList<>();
         CountDownLatch cdl = new CountDownLatch(2);
         ArrayList<Thread> threads = new ArrayList<>();
         ByteBlockRequest cloudByteRequested = new ByteBlockRequest(position,1);
@@ -335,17 +335,17 @@ public class StorageNode {
         threads.forEach(Thread::start);
         try {
             cdl.await();
-            //while (!cbsReceived.isEmpty()){
-              //  CloudByte cb1 = cbsReceived.get();
-               // CloudByte cb2 = cbsReceived.
-           // }
-
-            CloudByte cb1 = cbsReceived.get();
-            CloudByte cb2 = cbsReceived.get();
-            if(cb1.equals(cb2)) {
-                System.out.print("CloudByte:" + cloudBytes[cloudByteRequested.getStartIndex()] + " corrected to -> ");
-                System.out.println(cb1);
-                cloudBytes[cloudByteRequested.getStartIndex()] = cb1;
+            for (int i = 0; i < storageNodes.size(); i++) {
+                for (int j = i+1; j < storageNodes.size()-1; j++) {
+                    CloudByte cb1 = cbsReceived.get(i);
+                    CloudByte cb2 = cbsReceived.get(j);
+                    if(cb1.equals(cb2)) {
+                        System.out.print("CloudByte:" + cloudBytes[cloudByteRequested.getStartIndex()] + " corrected to -> ");
+                        System.out.println(cb1);
+                        cloudBytes[cloudByteRequested.getStartIndex()] = cb1;
+                        return;
+                    }
+                }
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
