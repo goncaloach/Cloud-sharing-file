@@ -4,9 +4,10 @@ public class adeus extends Thread{
 
     private int id;
     private CountDownLatch cdl;
+    private int time;
 
-    public adeus(int id, CountDownLatch cdl){
-
+    public adeus(int id, CountDownLatch cdl, int i){
+        this.time = i*10;
         this.id = id;
         this.cdl=cdl;
     }
@@ -15,14 +16,15 @@ public class adeus extends Thread{
     public void run() {
         try {
             for (int i = 0; i < 5; i++) {
-                Thread.sleep(1000);
+                Thread.sleep(1000+time);
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
             System.out.println("Thread id:"+id+" interrupted");
+            return;
         }
-        cdl.countDown();
         System.out.println("Thread id:"+id+" finished");
+        cdl.countDown();
     }
 
     @Override

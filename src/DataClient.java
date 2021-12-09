@@ -13,8 +13,10 @@ public class DataClient {
     private ObjectInputStream in;
     private ObjectOutputStream out;
     private JTextArea txtArea;
+    private final int clientID;
 
     public DataClient(String addressText, int port){
+        this.clientID = port;
         try {
             InetAddress address = InetAddress.getByName(addressText);
             Socket socket = new Socket(address, port);
@@ -22,11 +24,13 @@ public class DataClient {
             in = new ObjectInputStream(socket.getInputStream());
         } catch (IOException e) {
             e.printStackTrace();
+            System.err.println("Error while connecting to StorageNode");
+            System.exit(1);
         }
     }
 
     private void openGUI() {
-        JFrame frame = new JFrame("Client");
+        JFrame frame = new JFrame("Client "+clientID);
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         frame.setSize(600,140);
         frame.setVisible(true);

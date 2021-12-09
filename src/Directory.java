@@ -5,7 +5,7 @@ import java.net.Socket;
 public class Directory {
 
     private final int port;
-    private synchronizedQueue<String > list;
+    //private synchronizedQueue<NodeInformation > storageNodes; nao pode ser queue
 
     public Directory(int port){
         this.port=port;
@@ -40,6 +40,16 @@ public class Directory {
 
         @Override
         public void run() {
+            try {
+                while (true){
+                    String msgReceived = in.readLine();
+                    String[] values = msgReceived.split("\\s+");
+
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                System.err.println("Error while receiving data");
+            }
 
         }
     }

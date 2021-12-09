@@ -1,5 +1,3 @@
-import com.sun.beans.editors.ByteEditor;
-
 import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
@@ -11,6 +9,9 @@ import java.util.Scanner;
 public class StorageNode {
 
     //TODO corrigir erros
+    //O diretorio so atende um cliende de cada vez?
+    //TODO deadlock! qnd o node 3 copia do node 1 ou 2 e estes tem erros
+    //possivel correcao o diretorio mostrar so os nodes que estao disponiveis para servir
 
     private CloudByte[] cloudBytes = new CloudByte[1000000];
     private BufferedReader inDirectory;
@@ -24,6 +25,7 @@ public class StorageNode {
         } catch (IOException e) {
             System.err.println("Error while connecting to Directory");
             e.printStackTrace();
+            System.exit(1);
         }
 
         createCloudBytes(fileName);
@@ -45,6 +47,7 @@ public class StorageNode {
         } catch (IOException e) {
             System.err.println("Error while connecting to Directory");
             e.printStackTrace();
+            System.exit(1);
         }
 
         long start = System.nanoTime();
@@ -130,9 +133,13 @@ public class StorageNode {
     //DONE
     private void getCloudBytesFromStorageNodes(){
         ArrayList<NodeInformation> storageNodes = getListOfStorageNodes();
-        ByteBlockRequestQueue queue = new ByteBlockRequestQueue();
+        if(storageNodes.size()==0){
+            System.err.println("Not enough nodes connected do directory");
+            System.exit(1);
+        }
+        synchronizedQueue<ByteBlockRequest> queue = new synchronizedQueue<>();
         for (int i = 0; i < 10000; i++)
-            queue.addRequest(new ByteBlockRequest(i*100,100));
+            queue.add(new ByteBlockRequest(i*100,100));
         ArrayList<Thread> threads = new ArrayList<>();
         for (NodeInformation storageNode : storageNodes)
             threads.add(new getStorageNodeData(storageNode.getAddress(), storageNode.getPort(), queue));
@@ -144,25 +151,6 @@ public class StorageNode {
                 e.printStackTrace();
             }
         });
-    }
-
-    //DONE
-    private class NodeInformation{
-        private final InetAddress address;
-        private final int port;
-
-        public NodeInformation(InetAddress address, int port) {
-            this.address = address;
-            this.port = port;
-        }
-
-        public InetAddress getAddress() {
-            return address;
-        }
-
-        public int getPort() {
-            return port;
-        }
     }
 
     //DONE
@@ -178,7 +166,7 @@ public class StorageNode {
                 if(values[1].equals("localhost/127.0.0.1"))     //InetAddress.getByName can't recognize this address
                     values[1]="localhost";
                 if(!values[2].equals(""+port))
-                    list.add(new NodeInformation(InetAddress.getByName(values[1]),Integer.parseInt(values[2])));
+                    list.add(new NodeInformation(InetAddress.getByName(values[1]),Integer.parseInt(values[2]),false));
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -195,12 +183,12 @@ public class StorageNode {
 
         private ObjectInputStream in;
         private ObjectOutputStream out;
-        private ByteBlockRequestQueue queue;
+        private synchronizedQueue<ByteBlockRequest> queue;
         private int blocksTransferred;
         private final InetAddress address;
         private final int port;
 
-        public getStorageNodeData(InetAddress address, int port,ByteBlockRequestQueue queue){
+        public getStorageNodeData(InetAddress address, int port,synchronizedQueue<ByteBlockRequest> queue){
             this.address=address;
             this.port=port;
             this.queue=queue;
@@ -218,7 +206,7 @@ public class StorageNode {
         public void run() {
             while (!queue.isEmpty()){
                 try{
-                    ByteBlockRequest request = queue.getRequest();
+                    ByteBlockRequest request = queue.get();
                     try {
                         out.writeObject(request);
                         CloudByte[] dataReceived = (CloudByte[]) in.readObject();
@@ -231,8 +219,8 @@ public class StorageNode {
                     }
                 }catch (IllegalStateException e){} //list is empty
             }
-            System.out.println("Transfer finished from StorageNode Address:"+address+" Port:"+port);
-            System.out.println("Blocks Transferred:"+ blocksTransferred +" = "+(blocksTransferred *100)+" bytes");
+            System.out.println("Transfer finished from StorageNode Address:"+address+" Port:"+port +" \n"+
+                    "Blocks Transferred:"+ blocksTransferred +" = "+(blocksTransferred *100)+" bytes");
         }
     }
 
@@ -245,14 +233,11 @@ public class StorageNode {
                 Socket clientSocket = storageNodeServerSocket.accept();
                 new DealWithClient(clientSocket).start();
             }
-        } //finally {
+        }
         catch (IOException e) {
             System.err.println("Error while serving clients");
             e.printStackTrace();
         }
-        //not needed
-            //storageNodeServerSocket.close();
-        //}
     }
 
     //DONE
@@ -277,8 +262,7 @@ public class StorageNode {
                     for (int i = startIndex; i < startIndex + length; i++) {
                         if (!cloudBytes[i].isParityOk()) {
                             System.out.println("Error in byte number " + (i+1) + ": " + cloudBytes[i]);
-                            //TODO corrigir erro
-                            //correctError(i);
+                            correctError(i);
                         }
                     }
                     for (int i = startIndex, j = 0; i < startIndex + length; i++, j++)
@@ -286,7 +270,8 @@ public class StorageNode {
                     out.reset();
                     out.writeObject(msgResponse);
                 } catch (IOException | ClassNotFoundException e) {
-                    e.printStackTrace();
+                    //System.err.println("Error while transferring data");
+                   // e.printStackTrace();
                 }
             }
         }
@@ -298,12 +283,14 @@ public class StorageNode {
         private CountDownLatch cdl;
         private ObjectInputStream in;
         private ObjectOutputStream out;
+        private synchronizedQueue<CloudByte> cbsReceived;
         private final InetAddress address;
         private final int port;
         private final ByteBlockRequest cloudByteRequested;
-        private CloudByte cloudByteReceived;
 
-        public errorCorrector(InetAddress address, int port, CountDownLatch cdl, ByteBlockRequest cloudByteRequested){
+        public errorCorrector(InetAddress address, int port, CountDownLatch cdl,
+                              ByteBlockRequest cloudByteRequested,synchronizedQueue<CloudByte> cbsReceived){
+            this.cbsReceived=cbsReceived;
             this.cloudByteRequested = cloudByteRequested;
             this.cdl=cdl;
             this.address=address;
@@ -323,13 +310,13 @@ public class StorageNode {
             try {
                 out.writeObject(cloudByteRequested);
                 CloudByte[] dataReceived = (CloudByte[]) in.readObject();
-                cloudByteReceived = dataReceived[0];
-                System.out.println(cloudByteReceived);
+                cbsReceived.add(dataReceived[0]);
+                System.out.println("CloudByte received:"+dataReceived[0]+" From: "+address + " Port:"+port);
             } catch (IOException | ClassNotFoundException e) {
                 System.err.println("Error while sending or receiving data (errorCorrector)");
                 e.printStackTrace();
             }
-            System.out.println("Transfer finished from StorageNode Address:"+address+" Port:"+port);
+            System.out.println("countdown from StorageNode Address:"+address+" Port:"+port);
             cdl.countDown();
         }
     }
@@ -337,13 +324,30 @@ public class StorageNode {
     //TODO
     private void correctError(int position){
         ArrayList<NodeInformation> storageNodes = getListOfStorageNodes();
-        CountDownLatch cld = new CountDownLatch(2);
+        if(storageNodes.size()<2){
+            System.out.println("Not enough StorageNodes to correct error");
+            return;
+        }
+        synchronizedQueue<CloudByte> cbsReceived = new synchronizedQueue<>();
+        CountDownLatch cdl = new CountDownLatch(2);
         ArrayList<Thread> threads = new ArrayList<>();
         ByteBlockRequest cloudByteRequested = new ByteBlockRequest(position,1);
-        System.out.println("starting threads");
         for (NodeInformation storageNode : storageNodes)
-            threads.add(new errorCorrector(storageNode.getAddress(), storageNode.getPort(), cld, cloudByteRequested));
+            threads.add(new errorCorrector(storageNode.getAddress(), storageNode.getPort(), cdl, cloudByteRequested,cbsReceived));
         threads.forEach(Thread::start);
+        try {
+            cdl.await();
+            CloudByte cb1 = cbsReceived.get();
+            CloudByte cb2 = cbsReceived.get();
+            if(cb1.equals(cb2)){
+                System.out.print("CloudByte:"+cloudBytes[cloudByteRequested.getStartIndex()] +" corrected to -> ");
+                System.out.println(cb1);
+                cloudBytes[cloudByteRequested.getStartIndex()]=cb1;
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            System.err.println("Error while waiting for errorCorrectors");
+        }
         /*threads.forEach(t-> {
             try {
                 t.join();
@@ -355,10 +359,44 @@ public class StorageNode {
 
     //TODO check args
     public static void main(String[] args) throws IOException {
-        if (args.length == 4)
-            new StorageNode(args[0], Integer.parseInt(args[1]), Integer.parseInt(args[2]), args[3]);
-        if (args.length == 3)
-            new StorageNode(args[0], Integer.parseInt(args[1]), Integer.parseInt(args[2]));
-    }
+        if(args.length < 3 || args.length > 4)
+            throw new IllegalStateException("Number of arguments must be 3 or 4");
 
+        switch (args.length){
+            case 4:
+                try{
+                    int directoryPort = Integer.parseInt(args[1]);
+                    int nodePort = Integer.parseInt(args[2]);
+                    if(!args[3].equals("data.bin")){
+                        System.err.println("File not found");
+                        return;
+                    }
+                    if(directoryPort<1024 || directoryPort> 65535 ||
+                            nodePort<1024 || nodePort> 65535 || directoryPort==nodePort){
+                        System.err.println("Wrong port values");
+                        return;
+                    }
+                }catch (Exception e){
+                    System.err.println("Second and third argument must be Integers");
+                    return;
+                }
+                new StorageNode(args[0], Integer.parseInt(args[1]), Integer.parseInt(args[2]), args[3]);
+                break;
+            case 3:
+                try{
+                    int directoryPort = Integer.parseInt(args[1]);
+                    int nodePort = Integer.parseInt(args[2]);
+                    if(directoryPort<1024 || directoryPort> 65535 ||
+                            nodePort<1024 || nodePort> 65535 || directoryPort==nodePort){
+                        System.err.println("Wrong port values");
+                        return;
+                    }
+                }catch (NumberFormatException e){
+                    System.err.println("Second and third argument must be Integers");
+                    return;
+                }
+                new StorageNode(args[0], Integer.parseInt(args[1]), Integer.parseInt(args[2]));
+                break;
+        }
+    }
 }
