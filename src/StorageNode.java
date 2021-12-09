@@ -9,9 +9,6 @@ import java.util.Scanner;
 public class StorageNode {
 
     //TODO corrigir erros quando 2 storagenodes tem erro
-    //TODO deadlock! qnd o node 3 copia do node 1 ou 2 e estes tem erros
-    //possivel correcao o diretorio mostrar so os nodes que estao disponiveis para servir
-    //TODO corrigir 2 storageNodes com o mesmo porto
 
     private CloudByte[] cloudBytes = new CloudByte[1000000];
     private BufferedReader inDirectory;
@@ -145,7 +142,7 @@ public class StorageNode {
         ArrayList<Thread> threads = new ArrayList<>();
         for (NodeInformation storageNode : storageNodes)
             threads.add(new getStorageNodeData(storageNode.getAddress(), storageNode.getPort(), queue));
-        threads.forEach(t->t.start());
+        threads.forEach(Thread::start);
         threads.forEach(t-> {
             try {
                 t.join();
@@ -164,11 +161,11 @@ public class StorageNode {
                 String line = inDirectory.readLine();
                 if (line.equals("end"))
                     break;
-                String[] values = line.split("\\s+");   //TODO remover if
+                String[] values = line.split("\\s+");
                 if(values[1].equals("localhost/127.0.0.1"))     //InetAddress.getByName can't recognize this address
-                    values[1]="localhost";
+                    values[1]="localhost";                      //My version of Directory doesn't need this if
                 if(!values[2].equals(""+port))
-                    list.add(new NodeInformation(InetAddress.getByName(values[1]),Integer.parseInt(values[2]),false));
+                    list.add(new NodeInformation(InetAddress.getByName(values[1]),Integer.parseInt(values[2])));
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -338,27 +335,24 @@ public class StorageNode {
         threads.forEach(Thread::start);
         try {
             cdl.await();
+            //while (!cbsReceived.isEmpty()){
+              //  CloudByte cb1 = cbsReceived.get();
+               // CloudByte cb2 = cbsReceived.
+           // }
+
             CloudByte cb1 = cbsReceived.get();
             CloudByte cb2 = cbsReceived.get();
-            if(cb1.equals(cb2)){
-                System.out.print("CloudByte:"+cloudBytes[cloudByteRequested.getStartIndex()] +" corrected to -> ");
+            if(cb1.equals(cb2)) {
+                System.out.print("CloudByte:" + cloudBytes[cloudByteRequested.getStartIndex()] + " corrected to -> ");
                 System.out.println(cb1);
-                cloudBytes[cloudByteRequested.getStartIndex()]=cb1;
+                cloudBytes[cloudByteRequested.getStartIndex()] = cb1;
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
             System.err.println("Error while waiting for errorCorrectors");
         }
-        /*threads.forEach(t-> {
-            try {
-                t.join();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        });*/
     }
 
-    //TODO check args
     public static void main(String[] args) throws IOException {
         if(args.length < 3 || args.length > 4)
             throw new IllegalStateException("Number of arguments must be 3 or 4");

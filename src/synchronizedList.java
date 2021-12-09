@@ -17,6 +17,14 @@ public class synchronizedList<T> {
         }
     }
 
+    public synchronized T get(int index){
+        try{
+            return list.get(index);
+        }catch (Exception e){
+            throw new IllegalStateException("Out of bounds");
+        }
+    }
+
     public synchronized boolean isEmpty(){
         return list.isEmpty();
     }

@@ -59,8 +59,7 @@ public class Directory {
                             String list;
                             System.out.println("List of nodes:");
                             for (Integer i : storageNodes.keySet()) {
-                                list="node "+storageNodes.get(i).getAddress()+" "
-                                        +storageNodes.get(i).getPort()+" "+storageNodes.get(i).isReadyToServe();
+                                list="node "+storageNodes.get(i).getAddress()+" " +storageNodes.get(i).getPort();
                                 System.out.println(list);
                                 out.println(list);
                             }
@@ -78,26 +77,12 @@ public class Directory {
                                 try {
                                     storageNodes.get(port);
                                     System.err.println("Client already registered");
-                                    break;
-                                } catch (NullPointerException e){}
+                                    port=-1; //Create invalid port to be removed
+                                    socket.close();
+                                } catch (NullPointerException e){} //port doesn't exist
                                 this.address = InetAddress.getByName(values[1]);
-                                storageNodes.put(port,new NodeInformation(address,port,false));
+                                storageNodes.put(port,new NodeInformation(address,port));
                                 System.out.println("Client Registered: "+storageNodes.get(port));
-                            }catch (Exception e){
-                                System.err.println("Wrong values");
-                                e.printStackTrace();
-                            }
-                            break;
-                        case "READY":  //READY <port>
-                            if(values.length!=2){
-                                System.err.println("Wrong Arguments");
-                                break;
-                            }
-                            try{
-                                Integer port = Integer.parseInt(values[1]);
-                                NodeInformation node = storageNodes.get(port);
-                                node.setReadyToServe();
-                                storageNodes.edit(port,node);
                             }catch (Exception e){
                                 System.err.println("Wrong values");
                                 e.printStackTrace();
@@ -120,6 +105,11 @@ public class Directory {
                     socket.close();
                 } catch (IOException e) {
                     e.printStackTrace();
+                    try{
+                        System.out.println("StorageNode removed: "+storageNodes.get(port));
+                        storageNodes.remove(port);
+                    }catch (NullPointerException exp){} //Non existent StorageNode
+                    //socket.close();
                 }
             }
 

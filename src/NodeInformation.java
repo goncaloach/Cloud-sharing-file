@@ -3,12 +3,10 @@ import java.net.InetAddress;
 public class NodeInformation{
     private final InetAddress address;
     private final int port;
-    private boolean readyToServe;
 
-    public NodeInformation(InetAddress address, int port, boolean readyToServe) {
+    public NodeInformation(InetAddress address, int port) {
         this.address = address;
         this.port = port;
-        this.readyToServe = readyToServe;
     }
 
     public InetAddress getAddress() {
@@ -19,16 +17,8 @@ public class NodeInformation{
         return port;
     }
 
-    public boolean isReadyToServe() {
-        return readyToServe;
-    }
-
-    public void setReadyToServe(){
-        this.readyToServe = true;
-    }
-
     @Override
-    public String toString() { //TODO readyToServe
-        return  "node "+address.getHostAddress()+" "+ port +" "+readyToServe;
+    public String toString() {
+        return  "node "+address.getHostAddress()+" "+ port;
     }
 }
