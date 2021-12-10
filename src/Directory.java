@@ -6,7 +6,7 @@ import java.net.Socket;
 public class Directory {
 
     private final int port;
-    private synchronizedHashMap storageNodes = new synchronizedHashMap();
+    private syncNodeInfoHashMap storageNodes = new syncNodeInfoHashMap();
 
     public Directory(int port){
         this.port=port;

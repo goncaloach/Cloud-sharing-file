@@ -70,6 +70,7 @@ public class DataClient {
                     } catch (IOException ioException) {
                         System.err.println("Error while sending data");
                         ioException.printStackTrace();
+                        System.exit(1);
                     }
                 }
             }

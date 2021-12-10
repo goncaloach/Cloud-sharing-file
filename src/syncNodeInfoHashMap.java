@@ -1,7 +1,7 @@
 import java.util.Collection;
 import java.util.HashMap;
 
-public class synchronizedHashMap {
+public class syncNodeInfoHashMap {
 
     private HashMap<Integer,NodeInformation> hashMap = new HashMap();
 
