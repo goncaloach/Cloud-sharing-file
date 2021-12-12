@@ -1,3 +1,7 @@
+/**
+ @author Gonçalo Henriques nº93205
+ */
+
 public class CountDownLatch {
 
     private int count;

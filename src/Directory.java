@@ -3,6 +3,10 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+/**
+ @author Gonçalo Henriques nº93205
+ */
+
 public class Directory {
 
     private final int port;
@@ -109,7 +113,6 @@ public class Directory {
                         System.out.println("StorageNode removed: "+storageNodes.get(port));
                         storageNodes.remove(port);
                     }catch (NullPointerException exp){} //Non existent StorageNode
-                    //socket.close();
                 }
             }
 

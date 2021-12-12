@@ -1,6 +1,10 @@
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ @author Gonçalo Henriques nº93205
+ */
+
 public class synchronizedList<T> {
 
     private List<T> list = new ArrayList<>();

@@ -8,12 +8,16 @@ import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 
+/**
+ @author Gonçalo Henriques nº93205
+ */
+
 public class DataClient {
 
     private ObjectInputStream in;
     private ObjectOutputStream out;
     private JTextArea txtArea;
-    private final int clientID;
+    private final int clientID; //port of the StorageNode connected to
 
     public DataClient(String addressText, int port){
         this.clientID = port;
@@ -29,6 +33,7 @@ public class DataClient {
         }
     }
 
+    //creates the GUI
     private void openGUI() {
         JFrame frame = new JFrame("Client "+clientID);
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
@@ -77,6 +82,7 @@ public class DataClient {
         });
     }
 
+    //Thread that will be listening to the messages received by storageNodes
     private class MessageReceiver extends Thread{
 
         @Override
@@ -96,12 +102,14 @@ public class DataClient {
         }
     }
 
+    //Auxiliary Method to the checkValues Method
     private int truncateLength(int pos, int len){
         if(pos+len>1000000)
             return 1000000-pos;
         return len;
     }
 
+    //checks input values of the user
     private boolean checkValues(String txtPosition, String txtLength) {
         try {
             int position = Integer.parseInt(txtPosition);

@@ -1,6 +1,10 @@
 import java.util.Collection;
 import java.util.HashMap;
 
+/**
+ @author Gonçalo Henriques nº93205
+ */
+
 public class syncNodeInfoHashMap {
 
     private HashMap<Integer,NodeInformation> hashMap = new HashMap();

@@ -1,3 +1,7 @@
+/**
+ @author Gonçalo Henriques nº93205
+ */
+
 class CyclicBarrier {
 
     private int numberWaiters;

@@ -1,6 +1,10 @@
 import java.util.LinkedList;
 import java.util.Queue;
 
+/**
+ @author Gonçalo Henriques nº93205
+ */
+
 public class synchronizedQueue<T> {
 
     private Queue<T> queue = new LinkedList<>();

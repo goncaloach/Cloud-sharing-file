@@ -6,6 +6,10 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Scanner;
 
+/**
+@author Gonçalo Henriques nº93205
+ */
+
 public class StorageNode {
 
     private CloudByte[] cloudBytes = new CloudByte[1000000];
@@ -13,6 +17,7 @@ public class StorageNode {
     private PrintWriter outDirectory;
     private final int port;
 
+    //Constructor in case no StorageNode is connected do directory
     public StorageNode(String directoryAddressText, int directoryPort, int nodePort, String fileName) {
         this.port = nodePort;
         try {
@@ -35,6 +40,7 @@ public class StorageNode {
         System.err.println("Something went wrong");
     }
 
+    //Constructor in case there are already Storage Nodes to directory
     public StorageNode(String directoryAddressText, int directoryPort, int nodePort) {
         this.port = nodePort;
         try {
@@ -60,19 +66,19 @@ public class StorageNode {
         System.err.println("Something went wrong v2");
     }
 
+    //Connect StorageNode to Directory
     private void connectToDirectory(String directoryAddressText, int directoryPort, int nodePort) throws IOException {
         InetAddress directoryAddress = InetAddress.getByName(directoryAddressText);
         Socket directorySocket = new Socket(directoryAddress, directoryPort);
-
         this.inDirectory = new BufferedReader(new InputStreamReader(directorySocket.getInputStream()));
         this.outDirectory = new PrintWriter(new BufferedWriter(new OutputStreamWriter(directorySocket.getOutputStream())), true);
-
         InetAddress nodeAddress = InetAddress.getByName(null);
         String msg = "INSC " + nodeAddress + " " + nodePort;
         System.out.println("Sending to Directory: " + msg);
         outDirectory.println(msg);
     }
 
+    //Read CloudBytes from file
     private void createCloudBytes(String fileName) {
         try {
             byte[] fileContents = Files.readAllBytes(new File(fileName).toPath());
@@ -85,6 +91,7 @@ public class StorageNode {
         }
     }
 
+    //Thread to read inject error from the console
     private class injectErrorsFromConsole extends Thread {
 
         private boolean checkArguments(String[] strArgs) {
@@ -121,6 +128,11 @@ public class StorageNode {
 
     }
 
+    /*
+    Method that gets CloudBytes from other StorageNodes
+    1.Gets the list of StorageNodes
+    2.Creates a queue of ByteBlockRequests that will be accessed by the Thread getStorageNodeData
+    */
     private void getCloudBytesFromStorageNodes() {
         ArrayList<NodeInformation> storageNodes = getListOfStorageNodes();
         if (storageNodes.size() == 0) {
@@ -143,6 +155,11 @@ public class StorageNode {
         });
     }
 
+    /*
+    Method that creates a list of the active StorageNodes registered in the Directory
+    1.Sends a message to Directory
+    2.Creates a list of NodeInformation
+    */
     private ArrayList<NodeInformation> getListOfStorageNodes() {
         ArrayList<NodeInformation> list = new ArrayList<>();
         outDirectory.println("nodes");
@@ -167,6 +184,8 @@ public class StorageNode {
         return list;
     }
 
+
+    //Thread that asks a StorageNode for CloudBytes
     private class getStorageNodeData extends Thread {
 
         private ObjectInputStream in;
@@ -214,6 +233,7 @@ public class StorageNode {
         }
     }
 
+    //Method that indicates that the StorageNode can now send CloudBytes
     private void startServing() throws IOException {
         ServerSocket storageNodeServerSocket = new ServerSocket(port);
         try {
@@ -228,6 +248,11 @@ public class StorageNode {
         }
     }
 
+    /*Thread that deals with a specific client
+    1.Connects to client
+    2.Receives a ByteBlockRequest
+    3.Sends an array of requested data
+    */
     private class DealWithClient extends Thread {
 
         private ObjectInputStream in;
@@ -264,6 +289,12 @@ public class StorageNode {
         }
     }
 
+    /*
+    Thread that will contact a StorageNode to get a specific CloudByte
+    1.Connects with StorageNode
+    2.Sends the request of the CloudByte
+    3.Receives the CloudByte and then CountDown's the CountDownLatch
+     */
     private class errorCorrector extends Thread {
 
         private CountDownLatch cdl;
@@ -306,6 +337,13 @@ public class StorageNode {
         }
     }
 
+    /*
+    Method that creates errorCorrectors to correct an error
+    1.Gets the list of StorageNodes from the Directory
+    2.Creates a list that will store the received CloudBytes
+    3.Creates a CountDownLatch with 2 entries, when it reaches 0,the main thread will compare
+      the CloudBytes previously put in the list by the errorCorrectors Threads
+    */
     private void correctError(int position) {
         ArrayList<NodeInformation> storageNodes = getListOfStorageNodes();
         if (storageNodes.size() < 2) {
@@ -342,6 +380,10 @@ public class StorageNode {
         }
     }
 
+    /*
+    Runnable that is used by the cyclicBarrier when correcting errors
+    1.Fill's a queue with Integers from 0 to 999999
+     */
     private class queueFiller implements Runnable {
 
         private synchronizedQueue<Integer> queue;
@@ -356,12 +398,19 @@ public class StorageNode {
         }
     }
 
+    //Method that fill's a queue with Integers from 0 to 999999
     private synchronizedQueue<Integer> fillQueue(synchronizedQueue<Integer> queue) {
         for (int i = 0; i < 1000000; i++)
             queue.add(i);
         return queue;
     }
 
+    /*Method that creates and starts 2 errorSentinels Threads
+    Creates a queue with Integers what will be accessed synchronously by the errorSentinels
+    Each of the errorSentinels will get an Integer from the queue and will check the Array cloudBytes
+                                                                               in that index for errors
+    When the queue gets empty, it will invoke the queueFiller Runnable that will fill it again
+    */
     private void searchForErrors() {
         synchronizedQueue<Integer> queue = new synchronizedQueue<>();
         queue = fillQueue(queue);
@@ -373,9 +422,11 @@ public class StorageNode {
         }
     }
 
+
+    //Thread that will iterate the cloudBytes Array searching for errors
     private class errorSentinel extends Thread {
 
-        private final int id;
+        private final int id; //used in debug
         private synchronizedQueue<Integer> queue;
         private CyclicBarrier barrier;
 
@@ -407,8 +458,9 @@ public class StorageNode {
                         e.printStackTrace();
                     }
                     if (!cloudBytes[index].isParityOk()) {
+                        System.out.println("Error found in byte number " + (index + 1) + ": " + cloudBytes[index]);
                         correctError(index);
-                        System.out.println("id:" + id + " cb:" + cloudBytes[index] + " index:" + index);
+                        //System.out.println("errorSentinel id:" + id + " cb:" + cloudBytes[index] + " index:" + index);
                     }
                 } catch (IllegalStateException e) {
                 } //queue is empty
