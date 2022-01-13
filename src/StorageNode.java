@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.Scanner;
 
 /**
-@author Gonçalo Henriques nº93205
+ * @author Gonçalo Henriques nº93205
  */
 
 public class StorageNode {
@@ -211,8 +211,8 @@ public class StorageNode {
 
         @Override
         public void run() {
-            while (!queue.isEmpty()) {
-                try {
+            try {
+                while (true) {
                     ByteBlockRequest request = queue.get();
                     try {
                         out.writeObject(request);
@@ -225,9 +225,9 @@ public class StorageNode {
                         ioException.printStackTrace();
                         System.exit(1);
                     }
-                } catch (IllegalStateException e) {
-                } //list is empty
-            }
+                }
+            } catch (IllegalStateException e) {
+            } //list is empty
             System.out.println("Transfer finished from StorageNode Address:" + address + " Port:" + port + " \n" +
                     "Blocks Transferred:" + blocksTransferred + " = " + (blocksTransferred * 100) + " bytes");
         }
@@ -414,10 +414,9 @@ public class StorageNode {
     private void searchForErrors() {
         synchronizedQueue<Integer> queue = new synchronizedQueue<>();
         queue = fillQueue(queue);
-        CyclicBarrier barrier = new CyclicBarrier(2, new queueFiller(queue));
         errorSentinel[] threads = new errorSentinel[2];
         for (int i = 0; i < 2; i++) {
-            threads[i] = new errorSentinel(i, queue, barrier);
+            threads[i] = new errorSentinel(i, queue);
             threads[i].start();
         }
     }
@@ -428,43 +427,33 @@ public class StorageNode {
 
         private final int id; //used in debug
         private synchronizedQueue<Integer> queue;
-        private CyclicBarrier barrier;
 
-        public errorSentinel(int id, synchronizedQueue<Integer> queue, CyclicBarrier barrier) {
+        public errorSentinel(int id, synchronizedQueue<Integer> queue) {
             this.id = id;
             this.queue = queue;
-            this.barrier = barrier;
         }
 
         @Override
         public void run() {
-            while (true) {
+            while (true)
                 loop();
-                try {
-                    barrier.await();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
         }
 
         private void loop() {
-            while (!queue.isEmpty()) {
-                try {
-                    Integer index = queue.get();
-                    try {
-                        sleep(1);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    if (!cloudBytes[index].isParityOk()) {
-                        System.out.println("Error found in byte number " + (index + 1) + ": " + cloudBytes[index]);
-                        correctError(index);
-                        //System.out.println("errorSentinel id:" + id + " cb:" + cloudBytes[index] + " index:" + index);
-                    }
-                } catch (IllegalStateException e) {
-                } //queue is empty
-            }
+            try {
+                Integer index = queue.get();
+                /*try {
+                    sleep(1);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }*/
+                if (!cloudBytes[index].isParityOk()) {
+                    System.out.println("Error found in byte number " + (index + 1) + ": " + cloudBytes[index]);
+                    correctError(index);
+                }
+                queue.add(index);
+            } catch (IllegalStateException e) {
+            } //queue is empty
         }
     }
 
