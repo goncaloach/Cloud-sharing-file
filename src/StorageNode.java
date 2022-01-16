@@ -380,31 +380,6 @@ public class StorageNode {
         }
     }
 
-    /*
-    Runnable that is used by the cyclicBarrier when correcting errors
-    1.Fill's a queue with Integers from 0 to 999999
-     */
-    private class queueFiller implements Runnable {
-
-        private synchronizedQueue<Integer> queue;
-
-        public queueFiller(synchronizedQueue<Integer> queue) {
-            this.queue = queue;
-        }
-
-        @Override
-        public void run() {
-            queue = fillQueue(queue);
-        }
-    }
-
-    //Method that fill's a queue with Integers from 0 to 999999
-    private synchronizedQueue<Integer> fillQueue(synchronizedQueue<Integer> queue) {
-        for (int i = 0; i < 1000000; i++)
-            queue.add(i);
-        return queue;
-    }
-
     /*Method that creates and starts 2 errorSentinels Threads
     Creates a queue with Integers what will be accessed synchronously by the errorSentinels
     Each of the errorSentinels will get an Integer from the queue and will check the Array cloudBytes
@@ -413,14 +388,14 @@ public class StorageNode {
     */
     private void searchForErrors() {
         synchronizedQueue<Integer> queue = new synchronizedQueue<>();
-        queue = fillQueue(queue);
+        for (int i = 0; i < 1000000; i++)
+            queue.add(i);
         errorSentinel[] threads = new errorSentinel[2];
         for (int i = 0; i < 2; i++) {
             threads[i] = new errorSentinel(i, queue);
             threads[i].start();
         }
     }
-
 
     //Thread that will iterate the cloudBytes Array searching for errors
     private class errorSentinel extends Thread {
